@@ -9,6 +9,7 @@ on:
 jobs:
   run-tests:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -21,50 +22,47 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run Jest tests and output results to results.json
-        run: |
-          npx jest --json --outputFile=results.json || true
-
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Read test results and calculate score
+      - name: Run Jest tests and output results
+        id: run-tests
         run: |
-          # Ensure the results.json file exists
+          npx jest --json --outputFile=results.json || true
+
           if [ ! -f results.json ]; then
             echo "results.json not found!"
             exit 1
           fi
 
-          # Extract number of passed and total tests from results.json
-          PASSED=$(cat results.json | jq '.numPassedTests')
-          TOTAL=$(cat results.json | jq '.numTotalTests')
+          PASSED=$(jq '.numPassedTests' results.json)
+          TOTAL=$(jq '.numTotalTests' results.json)
 
-          if [ "$PASSED" -eq "" ] || [ "$TOTAL" -eq "" ]; then
+          if [ -z "$PASSED" ] || [ -z "$TOTAL" ]; then
             echo "Failed to parse test results!"
             exit 1
           fi
 
           echo "✅ Tests Passed: $PASSED / $TOTAL"
 
-          # Calculate score (e.g., 0.4 points per test case passed, max score of 4)
           SCORE=$(echo "$PASSED * 0.4" | bc)
           if (( $(echo "$SCORE > 4" | bc -l) )); then
             SCORE=4
           fi
           echo "🏆 Score: $SCORE / 4"
 
-        shell: bash
+          # Set outputs for later steps
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "results_json=$(cat results.json | jq -c .)" >> $GITHUB_OUTPUT
 
       - name: Report score to GitHub Classroom
         uses: classroom-resources/autograding-grading-reporter@v1
         with:
           runners: test
-          token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token from secrets
+          token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          # Read the content of results.json and encode it properly
-          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}  # Ensure JSON is properly passed
-          SCORE: $SCORE  # Pass the calculated score
+          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
+          SCORE: ${{ steps.run-tests.outputs.score }}
 
-      - name: Debugging - Output results.json
-        run: cat results.json  # Debugging step to view the contents of results.json
+      - name: Debug - Show test results
+        run: cat results.json
