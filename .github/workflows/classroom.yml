@@ -9,62 +9,61 @@ on:
 jobs:
   run-tests:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
+        
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
-
+          
       - name: Install dependencies
         run: npm install
-
+        
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
-
+        
       - name: Run Jest tests and output results
         id: run-tests
         run: |
           npx jest --json --outputFile=results.json || true
-
           if [ ! -f results.json ]; then
             echo "results.json not found!"
             exit 1
           fi
-
+          
           PASSED=$(jq '.numPassedTests' results.json)
           TOTAL=$(jq '.numTotalTests' results.json)
-
+          
           if [ -z "$PASSED" ] || [ -z "$TOTAL" ]; then
             echo "Failed to parse test results!"
             exit 1
           fi
-
+          
           echo "✅ Tests Passed: $PASSED / $TOTAL"
-
           SCORE=$(echo "$PASSED * 0.4" | bc)
+          
           if (( $(echo "$SCORE > 4" | bc -l) )); then
             SCORE=4
           fi
+          
           echo "🏆 Score: $SCORE / 4"
-
+          
           # Export score as output
           echo "score=$SCORE" >> $GITHUB_OUTPUT
-
-          # Export results_json as output (properly serialized and escaped)
+          
+          # Export results_json as output (properly escaped)
           COMPACT_JSON=$(jq -c . results.json)
-          ESCAPED_JSON=$(echo "$COMPACT_JSON" | jq -Rs .)  # Escape JSON to make it a single-line string
-          echo "results_json=$ESCAPED_JSON" >> $GITHUB_OUTPUT
-
+          echo "results_json<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMPACT_JSON" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         with:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          # Pass the raw JSON string directly to the Autograding Reporter
           TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
           SCORE: ${{ steps.run-tests.outputs.score }}
