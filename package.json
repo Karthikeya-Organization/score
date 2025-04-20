@@ -1,16 +1,10 @@
 {
-    "name": "sum-example",
-    "version": "1.0.0",
-    "description": "A simple sum function with tests",
-    "main": "sum.js",
-    "scripts": {
-      "test": "jest"
-    },
-    "dependencies": {},
-    "devDependencies": {
-      "jest": "^29.0.0"
-    },
-    "author": "",
-    "license": "ISC"
+  "name": "student-assignment",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
-  
+}

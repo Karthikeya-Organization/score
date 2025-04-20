@@ -1,65 +1,40 @@
-name: Test and Score
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
+name: Autograding
+on: [push]
 jobs:
-  run-tests:
+  grading:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      actions: read
+      contents: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # Check out the student's repository
+      - uses: actions/checkout@v3
 
+      # Set up Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: '18' # Adjust to your Node.js version
+          cache: 'npm'
 
+      # Install dependencies
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests and calculate score
+      # Run Jest tests and output results to JSON
+      - name: Run Jest tests
         run: |
-          OUTPUT=$(npx jest --json --outputFile=results.json || true)
-          
-          # Check if results.json was created and contains the correct keys
-          if [ ! -f results.json ]; then
-            echo "results.json not found!"
-            exit 1
-          fi
-
-          PASSED=$(cat results.json | jq '.numPassedTests')
-          TOTAL=$(cat results.json | jq '.numTotalTests')
-
-          if [ "$PASSED" -eq "" ] || [ "$TOTAL" -eq "" ]; then
-            echo "Failed to parse test results!"
-            exit 1
-          fi
-
-          echo "✅ Tests Passed: $PASSED / $TOTAL"
-
-          # Calculate score (e.g., 0.4 points per test case passed, max score of 4)
-          SCORE=$(echo "$PASSED * 0.4" | bc)
-          if (( $(echo "$SCORE > 4" | bc -l) )); then
-            SCORE=4
-          fi
-          echo "🏆 Score: $SCORE / 4"
-
-        shell: bash
-
-      - name: Upload test result (optional)
-        uses: actions/upload-artifact@v2
-        with:
-          name: jest-results
-          path: results.json
-
-      - name: Report score to GitHub Classroom
-        uses: classroom-resources/autograding-grading-reporter@v1
-        with:
-          runners: test
+          npm run test -- --json --outputFile=test-results.json .test.js
         env:
-          TEST_RESULTS: ${{ steps.run-tests.outputs.result }}  # Pass the test results (update if needed)
-          SCORE: $SCORE  # Pass the calculated score
+          CI: true
+        continue-on-error: true # Continue even if tests fail to calculate score
+
+      # Calculate score based on passing tests
+      - name: Calculate score
+        run: |
+          node calculate-score.js
+
+      # Submit score to GitHub Classroom
+      - name: Submit score
+        uses: education/autograding@v1
