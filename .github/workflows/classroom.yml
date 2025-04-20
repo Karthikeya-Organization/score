@@ -51,8 +51,10 @@ jobs:
           fi
           echo "🏆 Score: $SCORE / 4"
 
-          # Export as outputs
+          # Export score as output
           echo "score=$SCORE" >> $GITHUB_OUTPUT
+
+          # Export results_json as output (properly serialized)
           COMPACT_JSON=$(jq -c . results.json)
           echo "results_json=$COMPACT_JSON" >> $GITHUB_OUTPUT
 
@@ -62,5 +64,6 @@ jobs:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          # Pass both TEST_RESULTS and SCORE to the Autograding Reporter
           TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
           SCORE: ${{ steps.run-tests.outputs.score }}
