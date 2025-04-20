@@ -59,5 +59,9 @@ jobs:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token from secrets
         env:
-          TEST_RESULTS: $(cat results.json)  # Pass the entire JSON content as the environment variable
+          # Read the content of results.json and encode it properly
+          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}  # Ensure JSON is properly passed
           SCORE: $SCORE  # Pass the calculated score
+
+      - name: Debugging - Output results.json
+        run: cat results.json  # Debugging step to view the contents of results.json
