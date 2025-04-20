@@ -21,16 +21,19 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests and calculate score
+      - name: Run Jest tests and output results to results.json
         run: |
-          OUTPUT=$(npx jest --json --outputFile=results.json || true)
-          
-          # Check if results.json was created and contains the correct keys
+          npx jest --json --outputFile=results.json || true
+
+      - name: Read test results and calculate score
+        run: |
+          # Ensure the results.json file exists
           if [ ! -f results.json ]; then
             echo "results.json not found!"
             exit 1
           fi
 
+          # Extract number of passed and total tests from results.json
           PASSED=$(cat results.json | jq '.numPassedTests')
           TOTAL=$(cat results.json | jq '.numTotalTests')
 
@@ -54,6 +57,7 @@ jobs:
         uses: classroom-resources/autograding-grading-reporter@v1
         with:
           runners: test
+          token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token from secrets
         env:
-          TEST_RESULTS: ${{ steps.run-tests.outputs.result }}  # Pass the test results (update if needed)
+          TEST_RESULTS: $(cat results.json)  # Pass the entire JSON content as the environment variable
           SCORE: $SCORE  # Pass the calculated score
