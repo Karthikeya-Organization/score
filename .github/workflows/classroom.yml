@@ -21,43 +21,35 @@ jobs:
       - name: Install dependencies
         run: npm install
         
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-        
-      - name: Run Jest tests and output results
+      - name: Run Jest tests and generate score
         id: run-tests
         run: |
+          # Run tests and save results
           npx jest --json --outputFile=results.json || true
-          if [ ! -f results.json ]; then
-            echo "results.json not found!"
-            exit 1
+          
+          # Calculate score if results file exists
+          if [ -f results.json ]; then
+            PASSED=$(jq '.numPassedTests' results.json)
+            TOTAL=$(jq '.numTotalTests' results.json)
+            
+            if [ -z "$PASSED" ] || [ -z "$TOTAL" ]; then
+              echo "Failed to parse test results"
+              SCORE="0"
+            else
+              echo "Tests Passed: $PASSED / $TOTAL"
+              SCORE=$(echo "scale=2; $PASSED * 0.4" | bc)
+              
+              if (( $(echo "$SCORE > 4" | bc -l) )); then
+                SCORE="4"
+              fi
+            fi
+          else
+            echo "No test results found"
+            SCORE="0"
           fi
           
-          PASSED=$(jq '.numPassedTests' results.json)
-          TOTAL=$(jq '.numTotalTests' results.json)
-          
-          if [ -z "$PASSED" ] || [ -z "$TOTAL" ]; then
-            echo "Failed to parse test results!"
-            exit 1
-          fi
-          
-          echo "✅ Tests Passed: $PASSED / $TOTAL"
-          SCORE=$(echo "$PASSED * 0.4" | bc)
-          
-          if (( $(echo "$SCORE > 4" | bc -l) )); then
-            SCORE=4
-          fi
-          
-          echo "🏆 Score: $SCORE / 4"
-          
-          # Export score as output
+          echo "SCORE=$SCORE" >> $GITHUB_ENV
           echo "score=$SCORE" >> $GITHUB_OUTPUT
-          
-          # Export results_json as output (properly escaped)
-          COMPACT_JSON=$(jq -c . results.json)
-          echo "results_json<<EOF" >> $GITHUB_OUTPUT
-          echo "$COMPACT_JSON" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
           
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
@@ -65,5 +57,4 @@ jobs:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
-          SCORE: ${{ steps.run-tests.outputs.score }}
+          SCORE: ${{ env.SCORE }}
