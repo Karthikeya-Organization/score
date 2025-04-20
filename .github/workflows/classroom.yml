@@ -27,13 +27,10 @@ jobs:
           # Run tests and save results (continue on test failures)
           npx jest --json --outputFile=results.json || true
           
-          # Extract test data
+          # Calculate score if results exist
           if [ -f results.json ]; then
             PASSED=$(jq '.numPassedTests' results.json)
             TOTAL=$(jq '.numTotalTests' results.json)
-            
-            echo "PASSED_TESTS=$PASSED" >> $GITHUB_ENV
-            echo "TOTAL_TESTS=$TOTAL" >> $GITHUB_ENV
             
             # Calculate score (0.4 points per passing test, max 4)
             SCORE=$(echo "scale=2; $PASSED * 0.4" | bc)
@@ -41,29 +38,32 @@ jobs:
               SCORE="4.0"
             fi
             
-            echo "SCORE=$SCORE" >> $GITHUB_ENV
-            echo "::set-output name=score::$SCORE"
-            
-            # Create a minimal JSON report for the autograding reporter
-            echo "{\"passed\":$PASSED,\"total\":$TOTAL,\"score\":$SCORE}" > test-summary.json
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "score=$SCORE" >> $GITHUB_OUTPUT
           else
             echo "No test results found"
-            echo "SCORE=0" >> $GITHUB_ENV
-            echo "::set-output name=score::0"
-            echo "{\"passed\":0,\"total\":0,\"score\":0}" > test-summary.json
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "score=0" >> $GITHUB_OUTPUT
           fi
-          
+      
       - name: Display Test Results
         run: |
-          echo "Tests Passed: $PASSED_TESTS / $TOTAL_TESTS"
-          echo "Score: $SCORE / 4.0"
-          
+          echo "Tests Passed: ${{ steps.run-tests.outputs.passed }} / ${{ steps.run-tests.outputs.total }}"
+          echo "Score: ${{ steps.run-tests.outputs.score }} / 4.0"
+      
+      - name: Create Test Summary
+        run: |
+          echo "{\"passed\":${{ steps.run-tests.outputs.passed }},\"total\":${{ steps.run-tests.outputs.total }},\"score\":${{ steps.run-tests.outputs.score }}}" > test-summary.json
+          cat test-summary.json
+      
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         with:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          SCORE: ${{ env.SCORE }}
-          # Provide a minimal test results format
-          TEST_RESULTS: $(cat test-summary.json)
+          SCORE: ${{ steps.run-tests.outputs.score }}
+          # Using just the score without trying to pass complex JSON
+          # This is based on the error messages which suggest the action may only need the score
