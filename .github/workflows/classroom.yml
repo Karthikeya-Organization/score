@@ -56,11 +56,11 @@ jobs:
           COMPACT_JSON=$(jq -c . results.json)
           echo "results_json=$COMPACT_JSON" >> $GITHUB_OUTPUT
 
-- name: Autograding Reporter
-  uses: classroom-resources/autograding-grading-reporter@v1
-  with:
-    runners: test
-    token: ${{ secrets.GITHUB_TOKEN }}
-  env:
-    TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
-    SCORE: ${{ steps.run-tests.outputs.score }}
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        with:
+          runners: test
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
+          SCORE: ${{ steps.run-tests.outputs.score }}
