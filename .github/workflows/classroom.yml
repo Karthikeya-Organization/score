@@ -25,6 +25,9 @@ jobs:
         run: |
           npx jest --json --outputFile=results.json || true
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Read test results and calculate score
         run: |
           # Ensure the results.json file exists
