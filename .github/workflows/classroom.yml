@@ -64,5 +64,6 @@ jobs:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          # Pass both TEST_RESULTS and SCORE to the Autograding Reporter
-          TEST_RESULTS: ${{ steps.run-tests.outputs.score }}
+          # Pass the test results as JSON and score separately
+          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
+          SCORE: ${{ steps.run-tests.outputs.score }}
