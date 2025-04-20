@@ -52,8 +52,16 @@ jobs:
           echo "🏆 Score: $SCORE / 4"
 
           # Set outputs for later steps
+          ENCODED_RESULTS=$(base64 -w 0 results.json)
           echo "score=$SCORE" >> $GITHUB_OUTPUT
-          echo "results_json=$(cat results.json | jq -c .)" >> $GITHUB_OUTPUT
+          echo "results_json=$ENCODED_RESULTS" >> $GITHUB_OUTPUT
+
+      - name: Decode results and report score
+        run: |
+          echo "${{ steps.run-tests.outputs.results_json }}" | base64 -d > decoded_results.json
+          cat decoded_results.json
+        env:
+          SCORE: ${{ steps.run-tests.outputs.score }}
 
       - name: Report score to GitHub Classroom
         uses: classroom-resources/autograding-grading-reporter@v1
@@ -64,5 +72,5 @@ jobs:
           TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
           SCORE: ${{ steps.run-tests.outputs.score }}
 
-      - name: Debug - Show test results
+      - name: Debug - Show raw results.json
         run: cat results.json
