@@ -21,35 +21,42 @@ jobs:
       - name: Install dependencies
         run: npm install
         
-      - name: Run Jest tests and generate score
+      - name: Run Jest tests
         id: run-tests
         run: |
-          # Run tests and save results
+          # Run tests and save results (continue on test failures)
           npx jest --json --outputFile=results.json || true
           
-          # Calculate score if results file exists
+          # Extract test data
           if [ -f results.json ]; then
             PASSED=$(jq '.numPassedTests' results.json)
             TOTAL=$(jq '.numTotalTests' results.json)
             
-            if [ -z "$PASSED" ] || [ -z "$TOTAL" ]; then
-              echo "Failed to parse test results"
-              SCORE="0"
-            else
-              echo "Tests Passed: $PASSED / $TOTAL"
-              SCORE=$(echo "scale=2; $PASSED * 0.4" | bc)
-              
-              if (( $(echo "$SCORE > 4" | bc -l) )); then
-                SCORE="4"
-              fi
+            echo "PASSED_TESTS=$PASSED" >> $GITHUB_ENV
+            echo "TOTAL_TESTS=$TOTAL" >> $GITHUB_ENV
+            
+            # Calculate score (0.4 points per passing test, max 4)
+            SCORE=$(echo "scale=2; $PASSED * 0.4" | bc)
+            if (( $(echo "$SCORE > 4" | bc -l) )); then
+              SCORE="4.0"
             fi
+            
+            echo "SCORE=$SCORE" >> $GITHUB_ENV
+            echo "::set-output name=score::$SCORE"
+            
+            # Create a minimal JSON report for the autograding reporter
+            echo "{\"passed\":$PASSED,\"total\":$TOTAL,\"score\":$SCORE}" > test-summary.json
           else
             echo "No test results found"
-            SCORE="0"
+            echo "SCORE=0" >> $GITHUB_ENV
+            echo "::set-output name=score::0"
+            echo "{\"passed\":0,\"total\":0,\"score\":0}" > test-summary.json
           fi
           
-          echo "SCORE=$SCORE" >> $GITHUB_ENV
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
+      - name: Display Test Results
+        run: |
+          echo "Tests Passed: $PASSED_TESTS / $TOTAL_TESTS"
+          echo "Score: $SCORE / 4.0"
           
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
@@ -58,3 +65,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
           SCORE: ${{ env.SCORE }}
+          # Provide a minimal test results format
+          TEST_RESULTS: $(cat test-summary.json)
