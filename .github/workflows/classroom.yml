@@ -1,0 +1,65 @@
+name: Test and Score
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests and calculate score
+        run: |
+          OUTPUT=$(npx jest --json --outputFile=results.json || true)
+          
+          # Check if results.json was created and contains the correct keys
+          if [ ! -f results.json ]; then
+            echo "results.json not found!"
+            exit 1
+          fi
+
+          PASSED=$(cat results.json | jq '.numPassedTests')
+          TOTAL=$(cat results.json | jq '.numTotalTests')
+
+          if [ "$PASSED" -eq "" ] || [ "$TOTAL" -eq "" ]; then
+            echo "Failed to parse test results!"
+            exit 1
+          fi
+
+          echo "✅ Tests Passed: $PASSED / $TOTAL"
+
+          # Calculate score (e.g., 0.4 points per test case passed, max score of 4)
+          SCORE=$(echo "$PASSED * 0.4" | bc)
+          if (( $(echo "$SCORE > 4" | bc -l) )); then
+            SCORE=4
+          fi
+          echo "🏆 Score: $SCORE / 4"
+
+        shell: bash
+
+      - name: Upload test result (optional)
+        uses: actions/upload-artifact@v2
+        with:
+          name: jest-results
+          path: results.json
+
+      - name: Report score to GitHub Classroom
+        uses: classroom-resources/autograding-grading-reporter@v1
+        with:
+          runners: test
+        env:
+          TEST_RESULTS: ${{ steps.run-tests.outputs.result }}  # Pass the test results (update if needed)
+          SCORE: $SCORE  # Pass the calculated score
