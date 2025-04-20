@@ -54,10 +54,10 @@ jobs:
           # Export score as output
           echo "score=$SCORE" >> $GITHUB_OUTPUT
 
-          # Export results_json as output (properly serialized and escaped for the environment variable)
+          # Export results_json as output (properly serialized and Base64 encoded for the environment variable)
           COMPACT_JSON=$(jq -c . results.json)
-          ESCAPED_JSON=$(echo "$COMPACT_JSON" | jq -Rs .)  # Escape JSON to make it a single-line string
-          echo "results_json=$ESCAPED_JSON" >> $GITHUB_OUTPUT
+          ENCODED_JSON=$(echo "$COMPACT_JSON" | base64)  # Base64 encode the JSON for safe passing
+          echo "results_json_base64=$ENCODED_JSON" >> $GITHUB_OUTPUT
 
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
@@ -65,6 +65,6 @@ jobs:
           runners: test
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          # Pass the test results JSON and the score separately
-          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json }}
+          # Pass the Base64-encoded test results JSON and the score
+          TEST_RESULTS: ${{ steps.run-tests.outputs.results_json_base64 }}
           SCORE: ${{ steps.run-tests.outputs.score }}
